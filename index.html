@@ -1,290 +1,315 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Unicorn Jumper</title>
-  <style>
-    :root { --ink:#0b1020; --accent:#7a4bff; --gold:#ffcc00; --danger:#ff4b4b; }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{margin:0;background:linear-gradient(#a0e7ff,#ffffff);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);overflow:hidden}
-    canvas{display:block;width:100vw;height:100vh}
-    /* Overlays */
-    .overlay{
-      position:fixed;inset:0;display:grid;place-items:center;
-      background:linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,.75));
-      padding:24px;text-align:center
-    }
-    .hidden{display:none}
-    .card{
-      background:#fff;border:1px solid #e9ecf2;border-radius:16px;
-      padding:22px;max-width:520px;box-shadow:0 6px 30px rgba(0,0,0,.06)
-    }
-    h1{margin:.2em 0 .1em;font-size:28px}
-    .sub{opacity:.7;margin:0 0 10px;font-size:14px}
-    .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
-    .btn{
-      cursor:pointer;border:1px solid #e1e6f0;background:#fff;color:var(--ink);
-      border-radius:12px;padding:12px 16px;font-weight:600
-    }
-    .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
-    .hint{font-size:13px;opacity:.75;margin-top:10px}
-    /* HUD */
-    .hud{
-      position:fixed;left:12px;top:12px;background:rgba(0,0,0,.35);
-      color:#fff;padding:8px 12px;border-radius:10px;font-size:14px
-    }
-    .mobileHint{
-      position:fixed;right:12px;top:12px;background:rgba(0,0,0,.35);
-      color:#fff;padding:8px 12px;border-radius:10px;font-size:13px
-    }
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Unicorn Jumper – Polished</title>
+<style>
+  html,body{height:100%;margin:0;background:linear-gradient(#9de1ff,#ffffff);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  #game{width:100vw;height:100vh;overflow:hidden}
+  .ui{
+    position:fixed;inset:auto 12px 12px auto;z-index:10;
+    background:rgba(0,0,0,.45);color:#fff;border-radius:10px;padding:8px 12px;font-size:14px
+  }
+  .overlay{
+    position:fixed;inset:0;display:grid;place-items:center;background:linear-gradient(rgba(255,255,255,.85),rgba(255,255,255,.75));
+    z-index:20
+  }
+  .card{background:#fff;border:1px solid #e7ecf3;border-radius:16px;max-width:520px;padding:22px;box-shadow:0 6px 28px rgba(0,0,0,.08);text-align:center}
+  .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .btn{cursor:pointer;border:1px solid #111;background:#111;color:#fff;border-radius:12px;padding:12px 16px;font-weight:700}
+  .btn.ghost{background:#fff;color:#111;border-color:#e7ecf3}
+  .muted{opacity:.7}
+</style>
 </head>
 <body>
-  <div class="hud hidden" id="hud">Score: <span id="score">0</span></div>
-  <div class="mobileHint hidden" id="ctrlHint">Tap to jump</div>
-  <canvas id="gameCanvas"></canvas>
+<div id="game"></div>
+<div class="ui" id="hud" style="display:none">Score: <span id="score">0</span></div>
 
-  <!-- Start Screen -->
-  <div class="overlay" id="start">
-    <div class="card">
-      <h1>🦄 Unicorn Jumper</h1>
-      <p class="sub">Jump cloud to cloud, collect <b style="color:var(--gold)">rings</b>, dodge <b style="color:var(--danger)">fireballs</b>.</p>
-      <div class="row">
-        <button class="btn primary" id="startBtn">Start</button>
-        <button class="btn" id="howBtn">How to Play</button>
-      </div>
-      <div class="hint" id="howText" style="display:none">
-        <b>Jump:</b> Tap screen or press <b>Space</b> •<br>
-        Collect rings for points • Hitting a fireball ends the run.
-      </div>
+<div class="overlay" id="startOv">
+  <div class="card">
+    <h2>🦄 Unicorn Jumper</h2>
+    <p class="muted">Tap / Space to jump. Collect rings. Dodge fireballs.</p>
+    <div class="row">
+      <button class="btn" id="startBtn">Start</button>
+      <button class="btn ghost" id="howBtn">How to Play</button>
+    </div>
+    <p class="muted" id="how" style="display:none;margin-top:10px">
+      • Jump any time (air jump disabled)<br/>
+      • You get <b>coyote time</b> and <b>jump buffering</b> for smoother feel<br/>
+      • Difficulty ramps every 20s
+    </p>
+  </div>
+</div>
+
+<div class="overlay" id="overOv" style="display:none">
+  <div class="card">
+    <h2>Game Over</h2>
+    <p class="muted">Score: <span id="finalScore">0</span></p>
+    <div class="row">
+      <button class="btn" id="restartBtn">Restart</button>
     </div>
   </div>
+</div>
 
-  <!-- Game Over -->
-  <div class="overlay hidden" id="over">
-    <div class="card">
-      <h1>Game Over</h1>
-      <p class="sub">Score: <span id="finalScore">0</span></p>
-      <div class="row">
-        <button class="btn primary" id="restartBtn">Restart</button>
-      </div>
-      <div class="hint">Tip: Jump a beat earlier than you think 😉</div>
-    </div>
-  </div>
+<script src="https://unpkg.com/phaser@3.70.0/dist/phaser.min.js"></script>
+<script>
+(() => {
+  // Basic dimensions
+  const W = window.innerWidth, H = window.innerHeight;
 
-  <script>
-    // Canvas setup
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    function resize(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-    window.addEventListener("resize", resize); resize();
+  // UI refs
+  const startOv = document.getElementById('startOv');
+  const overOv  = document.getElementById('overOv');
+  const startBtn= document.getElementById('startBtn');
+  const howBtn  = document.getElementById('howBtn');
+  const howTxt  = document.getElementById('how');
+  const restartBtn = document.getElementById('restartBtn');
+  const hud     = document.getElementById('hud');
+  const scoreEl = document.getElementById('score');
+  const finalEl = document.getElementById('finalScore');
 
-    // UI
-    const hud = document.getElementById('hud');
-    const scoreEl = document.getElementById('score');
-    const ctrlHint = document.getElementById('ctrlHint');
-    const startOverlay = document.getElementById('start');
-    const gameOverOverlay = document.getElementById('over');
-    const finalScoreEl = document.getElementById('finalScore');
-    const startBtn = document.getElementById('startBtn');
-    const howBtn = document.getElementById('howBtn');
-    const howText = document.getElementById('howText');
-    const restartBtn = document.getElementById('restartBtn');
+  howBtn.onclick = () => { howTxt.style.display = howTxt.style.display ? '' : 'block'; };
 
-    howBtn.onclick = () => { howText.style.display = howText.style.display ? '' : 'block'; };
+  const config = {
+    type: Phaser.AUTO,
+    parent: 'game',
+    width: W,
+    height: H,
+    physics: {
+      default: 'arcade',
+      arcade: {
+        gravity: { y: 1800 },
+        fps: 60,
+        debug: false
+      }
+    },
+    scene: { preload, create, update }
+  };
 
-    // Game state
-    const State = { START:'start', PLAY:'play', OVER:'over' };
-    let state = State.START;
+  let game, player, ground, clouds, coins, fireballs, sparkles;
+  let cursors, pointerDown = false;
+  let score = 0, started = false, gameOver = false;
+  // Feel params
+  const JUMP_VELOCITY = -680;
+  const COYOTE_TIME_MS = 120;     // grace window after leaving ground
+  const JUMP_BUFFER_MS = 120;     // window before landing to queue a jump
+  let coyoteTimer = 0, jumpBufferTimer = 0;
+  let ringSpawn = 1300, fireSpawn = 1800, speedScale = 1, lastRamp = 0;
 
-    // Entities
-    const unicorn = {
-      x: 60, y: 0, w: 70, h: 70,
-      vy: 0, jumpForce: -15, g: 0.8, canJump: true
-    };
-    let rings = [];
-    let fireballs = [];
-    let score = 0;
-    let ringTimer = 0, fireTimer = 0;
+  function preload(){
+    // procedural graphics — no external assets
+    this.textures.generate('cloud', { data: drawCloud(64,40), pixelWidth: 2 });
+    this.textures.generate('ring',  { data: drawRing(28),    pixelWidth: 2 });
+    this.textures.generate('fire',  { data: drawFire(22),    pixelWidth: 2 });
+    this.textures.generate('uni',   { data: drawUnicorn(44,34), pixelWidth: 2 });
+    this.textures.generate('ground',{ data: drawGround(64,16), pixelWidth: 2 });
+  }
 
-    function resetGame(){
-      score = 0;
-      rings = [];
-      fireballs = [];
-      unicorn.y = canvas.height - 160;
-      unicorn.vy = 0;
-      unicorn.canJump = true;
-      ringTimer = 0; fireTimer = 0;
-      scoreEl.textContent = "0";
+  function create(){
+    // Parallax clouds
+    clouds = this.add.group();
+    for(let i=0;i<8;i++){
+      const c = this.add.image(Phaser.Math.Between(0,W), Phaser.Math.Between(40,H*0.5), 'cloud');
+      c.setAlpha(0.9);
+      c.speed = 0.2 + Math.random()*0.4;
+      clouds.add(c);
     }
 
-    function startGame(){
-      resetGame();
-      state = State.PLAY;
-      startOverlay.classList.add('hidden');
-      gameOverOverlay.classList.add('hidden');
-      hud.classList.remove('hidden');
-      ctrlHint.classList.remove('hidden');
-      lastTime = performance.now();
-      requestAnimationFrame(loop);
+    // Ground
+    ground = this.physics.add.staticGroup();
+    for(let x=0;x<=W+64;x+=64){
+      ground.create(x, H-60, 'ground').setOrigin(0.5,0.5).refreshBody();
     }
 
-    function gameOver(){
-      state = State.OVER;
-      finalScoreEl.textContent = score;
-      hud.classList.add('hidden');
-      ctrlHint.classList.add('hidden');
-      gameOverOverlay.classList.remove('hidden');
-    }
+    // Player
+    player = this.physics.add.image(120, H-120, 'uni');
+    player.setDepth(10);
+    player.setCollideWorldBounds(true);
+    player.body.setSize(player.width*0.8, player.height*0.9);
+    player.body.setOffset(player.width*0.1, player.height*0.05);
+    this.physics.add.collider(player, ground, ()=>{ coyoteTimer = COYOTE_TIME_MS; });
 
-    startBtn.onclick = startGame;
-    restartBtn.onclick = () => { startGame(); };
+    // Groups
+    coins = this.physics.add.group();
+    fireballs = this.physics.add.group();
+    sparkles = this.add.particles(0,0,'ring').createEmitter({
+      x:0,y:0, lifespan:400, speed: {min:40,max:120}, scale:{start:0.25,end:0}, quantity:0
+    });
+
+    // Overlaps
+    this.physics.add.overlap(player, coins, (p,c)=>{
+      score+=1; scoreEl.textContent = score;
+      sparkles.explode(10, c.x, c.y);
+      c.destroy();
+    });
+    this.physics.add.overlap(player, fireballs, ()=> endGame(this));
 
     // Input
-    function jump(){
-      if(state !== State.PLAY) return;
-      if(unicorn.canJump){
-        unicorn.vy = unicorn.jumpForce;
-        unicorn.canJump = false;
+    cursors = this.input.keyboard.createCursorKeys();
+    this.input.keyboard.on('keydown-SPACE', queueJump);
+    this.input.on('pointerdown', ()=>{ pointerDown = true; queueJump(); });
+    this.input.on('pointerup',   ()=>{ pointerDown = false; });
+
+    hud.style.display = 'none';
+    overOv.style.display = 'none';
+
+    // Timers
+    this.time.addEvent({ delay: ringSpawn, loop:true, callback: ()=>spawnRing(this) });
+    this.time.addEvent({ delay: fireSpawn, loop:true, callback: ()=>spawnFire(this) });
+
+    // Difficulty ramp
+    lastRamp = this.time.now;
+  }
+
+  function update(time, delta){
+    // Scroll clouds
+    clouds.children.iterate(c=>{
+      c.x -= c.speed * (0.6 + speedScale*0.2);
+      if(c.x < -80) c.x = W + 80, c.y = Phaser.Math.Between(40,H*0.5);
+    });
+
+    if(!started || gameOver) return;
+
+    // Coyote & jump buffer timers
+    coyoteTimer = Math.max(0, coyoteTimer - delta);
+    jumpBufferTimer = Math.max(0, jumpBufferTimer - delta);
+
+    // Apply queued jump when allowed
+    const onGround = player.body.blocked.down;
+    if(onGround) coyoteTimer = COYOTE_TIME_MS;
+    if(jumpBufferTimer > 0 && (onGround || coyoteTimer>0)){
+      doJump();
+      jumpBufferTimer = 0;
+      coyoteTimer = 0;
+    }
+
+    // Difficulty ramp every 20s
+    if(time - lastRamp > 20000){
+      lastRamp = time;
+      speedScale = Math.min(2.2, speedScale + 0.15);
+      ringSpawn = Math.max(700, ringSpawn - 80);
+      fireSpawn = Math.max(950, fireSpawn - 80);
+    }
+
+    // Move hazards
+    coins.children.iterate(c=>{ c.x -= 220*speedScale*delta/1000; if(c.x<-40) c.destroy(); });
+    fireballs.children.iterate(f=>{ f.x -= 280*speedScale*delta/1000; if(f.x<-40) f.destroy(); });
+  }
+
+  // Start/Restart hooks
+  document.getElementById('startBtn').onclick = ()=>{
+    started = true; gameOver = false; score = 0; scoreEl.textContent = 0;
+    hud.style.display = 'block';
+    startOv.style.display = 'none';
+  };
+  document.getElementById('restartBtn').onclick = ()=>{
+    location.reload(); // simplest clean reset for single-file demo
+  };
+
+  // Jump helpers with buffer & coyote time
+  function queueJump(){
+    if(gameOver || !started) return;
+    jumpBufferTimer = JUMP_BUFFER_MS;
+  }
+  function doJump(){
+    player.setVelocityY(JUMP_VELOCITY);
+    // Tiny squash & stretch
+    player.setScale(0.95,1.05);
+    setTimeout(()=> player.setScale(1,1), 80);
+  }
+
+  function spawnRing(scene){
+    if(!started || gameOver) return;
+    const y = Phaser.Math.Between(H*0.2, H*0.65);
+    const c = scene.physics.add.image(W+40, y, 'ring');
+    c.body.setAllowGravity(false);
+    coins.add(c);
+  }
+  function spawnFire(scene){
+    if(!started || gameOver) return;
+    const y = Phaser.Math.Between(H*0.25, H*0.7);
+    const f = scene.physics.add.image(W+40, y, 'fire');
+    f.body.setAllowGravity(false);
+    fireballs.add(f);
+  }
+
+  function endGame(scene){
+    if(gameOver) return;
+    gameOver = true;
+    scene.cameras.main.shake(180, 0.01);
+    finalEl.textContent = score;
+    hud.style.display = 'none';
+    setTimeout(()=>{ overOv.style.display = 'grid'; }, 220);
+  }
+
+  // === Procedural “art” ===
+  function drawCloud(w,h){
+    const cols = Math.ceil(w/2), rows = Math.ceil(h/2);
+    const data = [];
+    for(let y=0;y<rows;y++){
+      let row = [];
+      for(let x=0;x<cols;x++){
+        const dx = (x-cols/2)/ (cols/2), dy = (y-rows/2)/ (rows/2);
+        const v = Math.exp(-(dx*dx*2 + dy*dy*3));
+        row.push(v>0.4 ? 'FFF' : '.');
       }
+      data.push(row.join(''));
     }
-    window.addEventListener('keydown', e => { if(e.code === 'Space'){ e.preventDefault(); jump(); } });
-    window.addEventListener('touchstart', e => { e.preventDefault(); jump(); }, {passive:false});
-
-    // Helpers
-    function rectCircleCollide(rx,ry,rw,rh,cx,cy,cr){
-      const testX = Math.max(rx, Math.min(cx, rx+rw));
-      const testY = Math.max(ry, Math.min(cy, ry+rh));
-      const dx = cx - testX, dy = cy - testY;
-      return (dx*dx + dy*dy) <= cr*cr;
-    }
-
-    // Draw unicorn (simple rounded rect w/ horn)
-    function drawUnicorn(u){
-      // body
-      ctx.fillStyle = '#ff7ad9';
-      ctx.beginPath();
-      const r = 14;
-      ctx.moveTo(u.x+r, u.y);
-      ctx.arcTo(u.x+u.w, u.y, u.x+u.w, u.y+u.h, r);
-      ctx.arcTo(u.x+u.w, u.y+u.h, u.x, u.y+u.h, r);
-      ctx.arcTo(u.x, u.y+u.h, u.x, u.y, r);
-      ctx.arcTo(u.x, u.y, u.x+u.w, u.y, r);
-      ctx.closePath(); ctx.fill();
-      // horn
-      ctx.fillStyle = '#ffd166';
-      ctx.beginPath();
-      ctx.moveTo(u.x+u.w-16, u.y+10);
-      ctx.lineTo(u.x+u.w+10, u.y-16);
-      ctx.lineTo(u.x+u.w-4, u.y+16);
-      ctx.closePath(); ctx.fill();
-      // eye
-      ctx.fillStyle = '#0b1020';
-      ctx.beginPath(); ctx.arc(u.x+u.w*0.3, u.y+u.h*0.35, 4, 0, Math.PI*2); ctx.fill();
-    }
-
-    // Spawn
-    function spawnRing(){
-      rings.push({
-        x: canvas.width + 40,
-        y: Math.random() * (canvas.height*0.6) + canvas.height*0.15,
-        r: 22, speed: 4
-      });
-    }
-    function spawnFire(){
-      fireballs.push({
-        x: canvas.width + 40,
-        y: Math.random() * (canvas.height*0.55) + canvas.height*0.15,
-        r: 18, speed: 6
-      });
-    }
-
-    // Background clouds
-    function drawCloud(x,y,s){
-      ctx.fillStyle = 'rgba(255,255,255,.95)';
-      ctx.beginPath();
-      ctx.arc(x, y, 24*s, 0, Math.PI*2);
-      ctx.arc(x+22*s, y+6*s, 18*s, 0, Math.PI*2);
-      ctx.arc(x-22*s, y+8*s, 20*s, 0, Math.PI*2);
-      ctx.fill();
-    }
-
-    let lastTime = 0;
-    function loop(t){
-      if(state !== State.PLAY) return;
-      const dt = Math.min(32, t - lastTime); lastTime = t;
-
-      // Clear
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-
-      // Sky parallax
-      for(let i=0;i<8;i++){
-        const cx = (t*0.02 + i*200) % (canvas.width+240) - 120;
-        drawCloud(cx, 80 + (i%3)*60, 1 + (i%2)*0.4);
+    return data;
+  }
+  function drawRing(r){
+    const d=[], s=r;
+    for(let y=-s;y<=s;y++){
+      let row='';
+      for(let x=-s;x<=s;x++){
+        const k=Math.sqrt(x*x+y*y);
+        row += (k>r-3 && k<r+1) ? 'FFCC00' : '.';
       }
-
-      // Unicorn physics
-      unicorn.vy += unicorn.g;
-      unicorn.y += unicorn.vy;
-
-      // floor
-      const floorY = canvas.height - 110;
-      if(unicorn.y + unicorn.h >= floorY){
-        unicorn.y = floorY - unicorn.h;
-        unicorn.vy = 0;
-        unicorn.canJump = true;
-      }
-
-      // decorative ground
-      ctx.fillStyle = '#e9f7ff';
-      ctx.fillRect(0, floorY, canvas.width, canvas.height - floorY);
-
-      // Rings
-      ringTimer += dt; fireTimer += dt;
-      if(ringTimer > 1000){ spawnRing(); ringTimer = 0; }
-      if(fireTimer > 1600){ spawnFire(); fireTimer = 0; }
-
-      ctx.lineWidth = 5;
-      for(let i=rings.length-1;i>=0;i--){
-        const r = rings[i]; r.x -= r.speed;
-        ctx.strokeStyle = '#ffcc00';
-        ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI*2); ctx.stroke();
-        if(rectCircleCollide(unicorn.x, unicorn.y, unicorn.w, unicorn.h, r.x, r.y, r.r)){
-          rings.splice(i,1);
-          score += 1; scoreEl.textContent = score;
-        } else if(r.x + r.r < -20){ rings.splice(i,1); }
-      }
-
-      // Fireballs
-      for(let i=fireballs.length-1;i>=0;i--){
-        const f = fireballs[i]; f.x -= f.speed;
-        // glow
-        const g = ctx.createRadialGradient(f.x,f.y,0, f.x,f.y,f.r+18);
-        g.addColorStop(0,'rgba(255,80,40,.9)');
-        g.addColorStop(1,'rgba(255,80,40,0)');
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x,f.y,f.r+18,0,Math.PI*2); ctx.fill();
-        // core
-        ctx.fillStyle = '#ff4b4b'; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill();
-
-        if(rectCircleCollide(unicorn.x, unicorn.y, unicorn.w, unicorn.h, f.x, f.y, f.r)){
-          return gameOver();
-        } else if(f.x + f.r < -20){ fireballs.splice(i,1); }
-      }
-
-      // Draw unicorn last (on top)
-      drawUnicorn(unicorn);
-
-      requestAnimationFrame(loop);
+      d.push(row);
     }
+    return d;
+  }
+  function drawFire(r){
+    const d=[], s=r;
+    for(let y=-s;y<=s;y++){
+      let row='';
+      for(let x=-s;x<=s;x++){
+        const k=Math.sqrt(x*x+y*y);
+        row += k<r ? (y<0 ? 'FF7A59' : 'FF4B4B') : '.';
+      }
+      d.push(row);
+    }
+    return d;
+  }
+  function drawUnicorn(w,h){
+    const data=[];
+    for(let y=0;y<h;y++){
+      let row='';
+      for(let x=0;x<w;x++){
+        const edge = (x<2||y<2||x>w-3||y>h-3);
+        const horn = (x>Math.floor(w*0.75) && y<Math.floor(h*0.35) && (x-y)>Math.floor(w*0.7)-6);
+        const eye = (Math.abs(x-Math.floor(w*0.28))<2 && Math.abs(y-Math.floor(h*0.32))<2);
+        row += horn ? 'FFD166' : eye ? '0B1020' : edge ? 'FF8BD9' : 'FF7AD9';
+      }
+      data.push(row);
+    }
+    return data;
+  }
+  function drawGround(w,h){
+    const d=[];
+    for(let y=0;y<h;y++){
+      let row='';
+      for(let x=0;x<w;x++){
+        row += y>h/2 ? 'B7E6FF' : 'E9F7FF';
+      }
+      d.push(row);
+    }
+    return d;
+  }
 
-    // Show start overlay initially
-    (function init(){
-      startOverlay.classList.remove('hidden');
-      ctrlHint.classList.remove('hidden');
-      unicorn.y = canvas.height - 160;
-    })();
-  </script>
+  game = new Phaser.Game(config);
+})();
+</script>
 </body>
 </html>
