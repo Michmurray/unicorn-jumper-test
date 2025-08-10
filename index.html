@@ -5,143 +5,286 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Unicorn Jumper</title>
   <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: linear-gradient(to top, #87ceeb, #ffffff);
+    :root { --ink:#0b1020; --accent:#7a4bff; --gold:#ffcc00; --danger:#ff4b4b; }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(#a0e7ff,#ffffff);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);overflow:hidden}
+    canvas{display:block;width:100vw;height:100vh}
+    /* Overlays */
+    .overlay{
+      position:fixed;inset:0;display:grid;place-items:center;
+      background:linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,.75));
+      padding:24px;text-align:center
     }
-    canvas {
-      display: block;
+    .hidden{display:none}
+    .card{
+      background:#fff;border:1px solid #e9ecf2;border-radius:16px;
+      padding:22px;max-width:520px;box-shadow:0 6px 30px rgba(0,0,0,.06)
+    }
+    h1{margin:.2em 0 .1em;font-size:28px}
+    .sub{opacity:.7;margin:0 0 10px;font-size:14px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+    .btn{
+      cursor:pointer;border:1px solid #e1e6f0;background:#fff;color:var(--ink);
+      border-radius:12px;padding:12px 16px;font-weight:600
+    }
+    .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+    .hint{font-size:13px;opacity:.75;margin-top:10px}
+    /* HUD */
+    .hud{
+      position:fixed;left:12px;top:12px;background:rgba(0,0,0,.35);
+      color:#fff;padding:8px 12px;border-radius:10px;font-size:14px
+    }
+    .mobileHint{
+      position:fixed;right:12px;top:12px;background:rgba(0,0,0,.35);
+      color:#fff;padding:8px 12px;border-radius:10px;font-size:13px
     }
   </style>
 </head>
 <body>
+  <div class="hud hidden" id="hud">Score: <span id="score">0</span></div>
+  <div class="mobileHint hidden" id="ctrlHint">Tap to jump</div>
   <canvas id="gameCanvas"></canvas>
+
+  <!-- Start Screen -->
+  <div class="overlay" id="start">
+    <div class="card">
+      <h1>🦄 Unicorn Jumper</h1>
+      <p class="sub">Jump cloud to cloud, collect <b style="color:var(--gold)">rings</b>, dodge <b style="color:var(--danger)">fireballs</b>.</p>
+      <div class="row">
+        <button class="btn primary" id="startBtn">Start</button>
+        <button class="btn" id="howBtn">How to Play</button>
+      </div>
+      <div class="hint" id="howText" style="display:none">
+        <b>Jump:</b> Tap screen or press <b>Space</b> •<br>
+        Collect rings for points • Hitting a fireball ends the run.
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over -->
+  <div class="overlay hidden" id="over">
+    <div class="card">
+      <h1>Game Over</h1>
+      <p class="sub">Score: <span id="finalScore">0</span></p>
+      <div class="row">
+        <button class="btn primary" id="restartBtn">Restart</button>
+      </div>
+      <div class="hint">Tip: Jump a beat earlier than you think 😉</div>
+    </div>
+  </div>
+
   <script>
+    // Canvas setup
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    function resize(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    window.addEventListener("resize", resize); resize();
 
+    // UI
+    const hud = document.getElementById('hud');
+    const scoreEl = document.getElementById('score');
+    const ctrlHint = document.getElementById('ctrlHint');
+    const startOverlay = document.getElementById('start');
+    const gameOverOverlay = document.getElementById('over');
+    const finalScoreEl = document.getElementById('finalScore');
+    const startBtn = document.getElementById('startBtn');
+    const howBtn = document.getElementById('howBtn');
+    const howText = document.getElementById('howText');
+    const restartBtn = document.getElementById('restartBtn');
+
+    howBtn.onclick = () => { howText.style.display = howText.style.display ? '' : 'block'; };
+
+    // Game state
+    const State = { START:'start', PLAY:'play', OVER:'over' };
+    let state = State.START;
+
+    // Entities
     const unicorn = {
-      x: 50,
-      y: canvas.height - 150,
-      width: 80,
-      height: 80,
-      velocityY: 0,
-      jumpForce: -15,
-      gravity: 0.8,
-      color: "pink",
+      x: 60, y: 0, w: 70, h: 70,
+      vy: 0, jumpForce: -15, g: 0.8, canJump: true
     };
-
-    const rings = [];
-    const fireballs = [];
+    let rings = [];
+    let fireballs = [];
     let score = 0;
+    let ringTimer = 0, fireTimer = 0;
 
-    function spawnRing() {
+    function resetGame(){
+      score = 0;
+      rings = [];
+      fireballs = [];
+      unicorn.y = canvas.height - 160;
+      unicorn.vy = 0;
+      unicorn.canJump = true;
+      ringTimer = 0; fireTimer = 0;
+      scoreEl.textContent = "0";
+    }
+
+    function startGame(){
+      resetGame();
+      state = State.PLAY;
+      startOverlay.classList.add('hidden');
+      gameOverOverlay.classList.add('hidden');
+      hud.classList.remove('hidden');
+      ctrlHint.classList.remove('hidden');
+      lastTime = performance.now();
+      requestAnimationFrame(loop);
+    }
+
+    function gameOver(){
+      state = State.OVER;
+      finalScoreEl.textContent = score;
+      hud.classList.add('hidden');
+      ctrlHint.classList.add('hidden');
+      gameOverOverlay.classList.remove('hidden');
+    }
+
+    startBtn.onclick = startGame;
+    restartBtn.onclick = () => { startGame(); };
+
+    // Input
+    function jump(){
+      if(state !== State.PLAY) return;
+      if(unicorn.canJump){
+        unicorn.vy = unicorn.jumpForce;
+        unicorn.canJump = false;
+      }
+    }
+    window.addEventListener('keydown', e => { if(e.code === 'Space'){ e.preventDefault(); jump(); } });
+    window.addEventListener('touchstart', e => { e.preventDefault(); jump(); }, {passive:false});
+
+    // Helpers
+    function rectCircleCollide(rx,ry,rw,rh,cx,cy,cr){
+      const testX = Math.max(rx, Math.min(cx, rx+rw));
+      const testY = Math.max(ry, Math.min(cy, ry+rh));
+      const dx = cx - testX, dy = cy - testY;
+      return (dx*dx + dy*dy) <= cr*cr;
+    }
+
+    // Draw unicorn (simple rounded rect w/ horn)
+    function drawUnicorn(u){
+      // body
+      ctx.fillStyle = '#ff7ad9';
+      ctx.beginPath();
+      const r = 14;
+      ctx.moveTo(u.x+r, u.y);
+      ctx.arcTo(u.x+u.w, u.y, u.x+u.w, u.y+u.h, r);
+      ctx.arcTo(u.x+u.w, u.y+u.h, u.x, u.y+u.h, r);
+      ctx.arcTo(u.x, u.y+u.h, u.x, u.y, r);
+      ctx.arcTo(u.x, u.y, u.x+u.w, u.y, r);
+      ctx.closePath(); ctx.fill();
+      // horn
+      ctx.fillStyle = '#ffd166';
+      ctx.beginPath();
+      ctx.moveTo(u.x+u.w-16, u.y+10);
+      ctx.lineTo(u.x+u.w+10, u.y-16);
+      ctx.lineTo(u.x+u.w-4, u.y+16);
+      ctx.closePath(); ctx.fill();
+      // eye
+      ctx.fillStyle = '#0b1020';
+      ctx.beginPath(); ctx.arc(u.x+u.w*0.3, u.y+u.h*0.35, 4, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Spawn
+    function spawnRing(){
       rings.push({
-        x: canvas.width,
-        y: Math.random() * (canvas.height - 200) + 100,
-        radius: 25,
+        x: canvas.width + 40,
+        y: Math.random() * (canvas.height*0.6) + canvas.height*0.15,
+        r: 22, speed: 4
       });
     }
-
-    function spawnFireball() {
+    function spawnFire(){
       fireballs.push({
-        x: canvas.width,
-        y: Math.random() * (canvas.height - 150) + 50,
-        radius: 20,
-        speed: 6,
+        x: canvas.width + 40,
+        y: Math.random() * (canvas.height*0.55) + canvas.height*0.15,
+        r: 18, speed: 6
       });
     }
 
-    function update() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Background clouds
+    function drawCloud(x,y,s){
+      ctx.fillStyle = 'rgba(255,255,255,.95)';
+      ctx.beginPath();
+      ctx.arc(x, y, 24*s, 0, Math.PI*2);
+      ctx.arc(x+22*s, y+6*s, 18*s, 0, Math.PI*2);
+      ctx.arc(x-22*s, y+8*s, 20*s, 0, Math.PI*2);
+      ctx.fill();
+    }
 
-      // Draw unicorn
-      ctx.fillStyle = unicorn.color;
-      ctx.fillRect(unicorn.x, unicorn.y, unicorn.width, unicorn.height);
+    let lastTime = 0;
+    function loop(t){
+      if(state !== State.PLAY) return;
+      const dt = Math.min(32, t - lastTime); lastTime = t;
 
-      // Gravity
-      unicorn.velocityY += unicorn.gravity;
-      unicorn.y += unicorn.velocityY;
+      // Clear
+      ctx.clearRect(0,0,canvas.width,canvas.height);
 
-      // Floor collision
-      if (unicorn.y > canvas.height - unicorn.height) {
-        unicorn.y = canvas.height - unicorn.height;
-        unicorn.velocityY = 0;
+      // Sky parallax
+      for(let i=0;i<8;i++){
+        const cx = (t*0.02 + i*200) % (canvas.width+240) - 120;
+        drawCloud(cx, 80 + (i%3)*60, 1 + (i%2)*0.4);
       }
 
-      // Rings
-      for (let i = rings.length - 1; i >= 0; i--) {
-        let ring = rings[i];
-        ring.x -= 4;
-        ctx.beginPath();
-        ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
-        ctx.strokeStyle = "gold";
-        ctx.lineWidth = 5;
-        ctx.stroke();
+      // Unicorn physics
+      unicorn.vy += unicorn.g;
+      unicorn.y += unicorn.vy;
 
-        if (
-          unicorn.x < ring.x + ring.radius &&
-          unicorn.x + unicorn.width > ring.x - ring.radius &&
-          unicorn.y < ring.y + ring.radius &&
-          unicorn.y + unicorn.height > ring.y - ring.radius
-        ) {
-          rings.splice(i, 1);
-          score++;
-        } else if (ring.x + ring.radius < 0) {
-          rings.splice(i, 1);
-        }
+      // floor
+      const floorY = canvas.height - 110;
+      if(unicorn.y + unicorn.h >= floorY){
+        unicorn.y = floorY - unicorn.h;
+        unicorn.vy = 0;
+        unicorn.canJump = true;
+      }
+
+      // decorative ground
+      ctx.fillStyle = '#e9f7ff';
+      ctx.fillRect(0, floorY, canvas.width, canvas.height - floorY);
+
+      // Rings
+      ringTimer += dt; fireTimer += dt;
+      if(ringTimer > 1000){ spawnRing(); ringTimer = 0; }
+      if(fireTimer > 1600){ spawnFire(); fireTimer = 0; }
+
+      ctx.lineWidth = 5;
+      for(let i=rings.length-1;i>=0;i--){
+        const r = rings[i]; r.x -= r.speed;
+        ctx.strokeStyle = '#ffcc00';
+        ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI*2); ctx.stroke();
+        if(rectCircleCollide(unicorn.x, unicorn.y, unicorn.w, unicorn.h, r.x, r.y, r.r)){
+          rings.splice(i,1);
+          score += 1; scoreEl.textContent = score;
+        } else if(r.x + r.r < -20){ rings.splice(i,1); }
       }
 
       // Fireballs
-      for (let i = fireballs.length - 1; i >= 0; i--) {
-        let fb = fireballs[i];
-        fb.x -= fb.speed;
-        ctx.beginPath();
-        ctx.arc(fb.x, fb.y, fb.radius, 0, Math.PI * 2);
-        ctx.fillStyle = "red";
-        ctx.fill();
+      for(let i=fireballs.length-1;i>=0;i--){
+        const f = fireballs[i]; f.x -= f.speed;
+        // glow
+        const g = ctx.createRadialGradient(f.x,f.y,0, f.x,f.y,f.r+18);
+        g.addColorStop(0,'rgba(255,80,40,.9)');
+        g.addColorStop(1,'rgba(255,80,40,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x,f.y,f.r+18,0,Math.PI*2); ctx.fill();
+        // core
+        ctx.fillStyle = '#ff4b4b'; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill();
 
-        if (
-          unicorn.x < fb.x + fb.radius &&
-          unicorn.x + unicorn.width > fb.x - fb.radius &&
-          unicorn.y < fb.y + fb.radius &&
-          unicorn.y + unicorn.height > fb.y - fb.radius
-        ) {
-          alert("Game Over! Score: " + score);
-          document.location.reload();
-        } else if (fb.x + fb.radius < 0) {
-          fireballs.splice(i, 1);
-        }
+        if(rectCircleCollide(unicorn.x, unicorn.y, unicorn.w, unicorn.h, f.x, f.y, f.r)){
+          return gameOver();
+        } else if(f.x + f.r < -20){ fireballs.splice(i,1); }
       }
 
-      // Score
-      ctx.fillStyle = "black";
-      ctx.font = "30px Arial";
-      ctx.fillText("Score: " + score, 20, 40);
+      // Draw unicorn last (on top)
+      drawUnicorn(unicorn);
 
-      requestAnimationFrame(update);
+      requestAnimationFrame(loop);
     }
 
-    // Spawn items
-    setInterval(spawnRing, 2000);
-    setInterval(spawnFireball, 3000);
-
-    // Controls
-    window.addEventListener("keydown", (e) => {
-      if (e.code === "Space" && unicorn.velocityY === 0) {
-        unicorn.velocityY = unicorn.jumpForce;
-      }
-    });
-    window.addEventListener("touchstart", () => {
-      if (unicorn.velocityY === 0) {
-        unicorn.velocityY = unicorn.jumpForce;
-      }
-    });
-
-    update();
+    // Show start overlay initially
+    (function init(){
+      startOverlay.classList.remove('hidden');
+      ctrlHint.classList.remove('hidden');
+      unicorn.y = canvas.height - 160;
+    })();
   </script>
 </body>
 </html>
