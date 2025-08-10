@@ -1,22 +1,147 @@
-{
-  "ok": true,
-  "game": {
-    "title": "Generated Game",
-    "prompt": "Unicorn jumping cloud to cloud collecting gold coins while dodging fireballs",
-    "template": "platformer",
-    "player": {
-      "speed": 320,
-      "jump": 520
-    },
-    "world": {
-      "theme": "clouds",
-      "gravity": 900
-    },
-    "goals": [
-      "collect 20 rings",
-      "avoid fireballs",
-      "reach finish"
-    ],
-    "version": 1
-  }
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unicorn Jumper</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: linear-gradient(to top, #87ceeb, #ffffff);
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const unicorn = {
+      x: 50,
+      y: canvas.height - 150,
+      width: 80,
+      height: 80,
+      velocityY: 0,
+      jumpForce: -15,
+      gravity: 0.8,
+      color: "pink",
+    };
+
+    const rings = [];
+    const fireballs = [];
+    let score = 0;
+
+    function spawnRing() {
+      rings.push({
+        x: canvas.width,
+        y: Math.random() * (canvas.height - 200) + 100,
+        radius: 25,
+      });
+    }
+
+    function spawnFireball() {
+      fireballs.push({
+        x: canvas.width,
+        y: Math.random() * (canvas.height - 150) + 50,
+        radius: 20,
+        speed: 6,
+      });
+    }
+
+    function update() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw unicorn
+      ctx.fillStyle = unicorn.color;
+      ctx.fillRect(unicorn.x, unicorn.y, unicorn.width, unicorn.height);
+
+      // Gravity
+      unicorn.velocityY += unicorn.gravity;
+      unicorn.y += unicorn.velocityY;
+
+      // Floor collision
+      if (unicorn.y > canvas.height - unicorn.height) {
+        unicorn.y = canvas.height - unicorn.height;
+        unicorn.velocityY = 0;
+      }
+
+      // Rings
+      for (let i = rings.length - 1; i >= 0; i--) {
+        let ring = rings[i];
+        ring.x -= 4;
+        ctx.beginPath();
+        ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = "gold";
+        ctx.lineWidth = 5;
+        ctx.stroke();
+
+        if (
+          unicorn.x < ring.x + ring.radius &&
+          unicorn.x + unicorn.width > ring.x - ring.radius &&
+          unicorn.y < ring.y + ring.radius &&
+          unicorn.y + unicorn.height > ring.y - ring.radius
+        ) {
+          rings.splice(i, 1);
+          score++;
+        } else if (ring.x + ring.radius < 0) {
+          rings.splice(i, 1);
+        }
+      }
+
+      // Fireballs
+      for (let i = fireballs.length - 1; i >= 0; i--) {
+        let fb = fireballs[i];
+        fb.x -= fb.speed;
+        ctx.beginPath();
+        ctx.arc(fb.x, fb.y, fb.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "red";
+        ctx.fill();
+
+        if (
+          unicorn.x < fb.x + fb.radius &&
+          unicorn.x + unicorn.width > fb.x - fb.radius &&
+          unicorn.y < fb.y + fb.radius &&
+          unicorn.y + unicorn.height > fb.y - fb.radius
+        ) {
+          alert("Game Over! Score: " + score);
+          document.location.reload();
+        } else if (fb.x + fb.radius < 0) {
+          fireballs.splice(i, 1);
+        }
+      }
+
+      // Score
+      ctx.fillStyle = "black";
+      ctx.font = "30px Arial";
+      ctx.fillText("Score: " + score, 20, 40);
+
+      requestAnimationFrame(update);
+    }
+
+    // Spawn items
+    setInterval(spawnRing, 2000);
+    setInterval(spawnFireball, 3000);
+
+    // Controls
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && unicorn.velocityY === 0) {
+        unicorn.velocityY = unicorn.jumpForce;
+      }
+    });
+    window.addEventListener("touchstart", () => {
+      if (unicorn.velocityY === 0) {
+        unicorn.velocityY = unicorn.jumpForce;
+      }
+    });
+
+    update();
+  </script>
+</body>
+</html>
